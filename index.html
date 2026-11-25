@@ -93,6 +93,12 @@
     .item-row{grid-template-columns:1fr .6fr 34px;grid-auto-rows:auto}
     .item-row .notes-cell{grid-column:1/4}
   }
+/* دليل الأصناف: خط أكبر */
+#catalogOverlay .cat-row{font-size:20px;line-height:1.8}
+#catalogOverlay .cat-row b{font-size:21px}
+#catalogOverlay .form-card input[type=text]{font-size:18px}
+#catalogOverlay .form-card label{font-size:16px}
+#catalogOverlay .status{font-size:16px}
 </style>
 </head>
 <body>
@@ -106,6 +112,7 @@
     <button type="button" class="btn btn-outline" id="exportBtn">⬇️ تصدير نسخة احتياطية</button>
     <button type="button" class="btn btn-outline" id="importBtn">⬆️ استيراد نسخة احتياطية</button>
     <button type="button" class="btn btn-outline" id="reportsBtn">📊 تقارير</button>
+    <button type="button" class="btn btn-outline" id="catalogBtn">📋 دليل الأصناف</button>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
     <div class="search-wrap">
       <input id="searchBox" type="text" placeholder="ابحث برقم الطلب أو اسم صنف…" autocomplete="off">
@@ -174,6 +181,34 @@
     <div id="reportsBody"></div>
     <div class="form-actions">
       <button type="button" class="btn btn-outline" id="closeReportsBtn">إغلاق</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="catalogOverlay">
+  <div class="form-card preview-box">
+    <h2>دليل الأصناف</h2>
+    <div class="frow">
+      <div>
+        <label for="catNumber">رقم الصنف *</label>
+        <input id="catNumber" type="text" autocomplete="off" maxlength="30">
+      </div>
+      <div>
+        <label for="catName">اسم الصنف *</label>
+        <input id="catName" type="text" autocomplete="off" maxlength="120">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary btn-sm" id="catAddBtn">➕ إضافة صنف</button>
+      <span class="status" id="catMsg"></span>
+    </div>
+    <div style="margin-top:10px">
+      <label for="catalogSearch">ابحث برقم الصنف أو الاسم…</label>
+      <input id="catalogSearch" type="text" autocomplete="off">
+    </div>
+    <div class="status" id="catalogCount"></div>
+    <div id="catalogList"></div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-outline" id="closeCatalogBtn">إغلاق</button>
     </div>
   </div>
 </div>
@@ -644,6 +679,7 @@ async function loadCatalog(){
     if(res.error) return;
     catalog = (res.data||[]).map(function(r){ return {number:String(r.item_number||"").trim(), name:String(r.item_name||"").trim()}; }).filter(function(c){ return c.number && c.name; });
     catalogLoaded = true;
+    renderCatalogList();
   }catch(e){}
 }
 function catalogMatches(q){
@@ -787,6 +823,7 @@ document.addEventListener("keydown", function(e){
     if(itemSug){ hideItemSug(); return; }
     if($("previewOverlay").classList.contains("open")){ closePreview(); return; }
     if($("reportsOverlay").classList.contains("open")){ closeReports(); return; }
+    if($("catalogOverlay").classList.contains("open")){ closeCatalog(); return; }
     if($("formOverlay").classList.contains("open")){ closeForm(); return; }
   }
 });
@@ -1028,6 +1065,56 @@ $("reportsBody").addEventListener("click", function(e){
   if(!b) return;
   reportsCurrentId = b.getAttribute("data-report");
   renderReports();
+});
+/* ---------- دليل الأصناف: عرض وبحث وإضافة (نفس دليل تطبيق المتابعة) ---------- */
+function renderCatalogList(){
+  var body = $("catalogList");
+  if(!body) return;
+  var q = $("catalogSearch") ? $("catalogSearch").value : "";
+  if(!catalogLoaded){
+    body.innerHTML = '<div class="card empty">جاري تحميل الدليل…</div>';
+    $("catalogCount").textContent = "";
+    return;
+  }
+  var list = catalogMatches(q);
+  $("catalogCount").textContent = "عدد الأصناف: " + list.length + (q ? (" من أصل " + catalog.length) : "");
+  if(!list.length){ body.innerHTML = '<div class="card empty">لا توجد أصناف مطابقة.</div>'; return; }
+  body.innerHTML = list.map(function(c){
+    return '<div class="card cat-row"><b>' + esc(c.number) + '</b> — ' + esc(c.name) + '</div>';
+  }).join("");
+}
+function openCatalog(){
+  renderCatalogList();
+  $("catalogOverlay").classList.add("open");
+}
+function closeCatalog(){ $("catalogOverlay").classList.remove("open"); }
+$("catalogBtn").addEventListener("click", openCatalog);
+$("closeCatalogBtn").addEventListener("click", closeCatalog);
+$("catalogOverlay").addEventListener("click", function(e){
+  if(e.target === $("catalogOverlay")) closeCatalog();
+});
+$("catalogSearch").addEventListener("input", renderCatalogList);
+$("catAddBtn").addEventListener("click", async function(){
+  var num = $("catNumber").value.trim();
+  var name = $("catName").value.trim();
+  var msg = $("catMsg");
+  msg.textContent = "";
+  if(!num || !name){ msg.textContent = "من فضلك املا رقم الصنف واسم الصنف."; return; }
+  if(catalog.some(function(c){ return normDigits(c.number) === normDigits(num); })){ msg.textContent = "رقم الصنف ده مسجل قبل كده في الدليل."; return; }
+  if(!sb){ msg.textContent = "الدليل غير متاح الآن — تحقق من الاتصال بالإنترنت."; return; }
+  $("catAddBtn").disabled = true;
+  try{
+    var res = await sb.from("item_catalog").insert([{item_number: num, item_name: name}]);
+    if(res.error) throw res.error;
+    catalog.push({number: num, name: name});
+    catalog.sort(function(a,b){ return a.number < b.number ? -1 : (a.number > b.number ? 1 : 0); });
+    $("catNumber").value = ""; $("catName").value = "";
+    renderCatalogList();
+    msg.textContent = "تمت إضافة الصنف إلى الدليل.";
+  }catch(err){
+    msg.textContent = "تعذّر الإضافة: " + String((err && err.message) || err || "").slice(0, 80);
+  }
+  $("catAddBtn").disabled = false;
 });
 /* ---------- تصدير واستيراد نسخة احتياطية ---------- */
 $("exportBtn").addEventListener("click", function(){
