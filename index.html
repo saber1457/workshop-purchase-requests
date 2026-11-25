@@ -42,6 +42,8 @@
   .items-head h3{margin:0;font-size:16px}
   .item-row{display:grid;grid-template-columns:1.6fr .7fr 1fr 34px;gap:8px;margin-top:8px;align-items:start}
   .item-name-wrap{position:relative}
+  .item-name-wrap .it-name{padding-left:36px}
+  .sug button.sel{background:#eef2f7}
   .item-name-wrap input{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font-size:15px;font-family:inherit}
   .item-row input[type=text]{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font-size:15px;font-family:inherit}
   .row-del{border:0;background:#fdecea;color:var(--red);border-radius:8px;width:34px;height:42px;font-size:16px;cursor:pointer}
@@ -300,9 +302,19 @@ window.addEventListener("storage", function(e){
 var SUPABASE_URL = "https://wkrasfnkozbqnhkosngd.supabase.co";
 var SUPABASE_KEY = "sb_publishable_Vla_hMPIlRl46MNPSrhdgA_ouae6ycI";
 var sb = null, syncOn = false, syncingNow = false, flushing = false, syncTimer = null;
+var lastSyncErr = "";
 var LS_PEND_UP = "workshopMemosV1.pendingUp";
 var LS_PEND_DEL = "workshopMemosV1.pendingDel";
 function setSyncStatus(t){ var el = $("syncStatus"); if(el) el.textContent = t; }
+function refreshSyncStatus(){
+  var pend = pendGet(LS_PEND_UP).length + pendGet(LS_PEND_DEL).length;
+  if(pend>0){
+    syncOn = false;
+    setSyncStatus("المزامنة متعذّرة — "+pend+" مذكرة لم تُرفع بعد، ستُعاد المحاولة تلقائيًا."+(lastSyncErr ? " ("+lastSyncErr+")" : ""));
+  }else if(syncOn){
+    setSyncStatus("المزامنة مفعّلة ✓");
+  }
+}
 function pendGet(k){ try{ var a = JSON.parse(localStorage.getItem(k)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function pendSet(k, a){ try{ localStorage.setItem(k, JSON.stringify(a)); }catch(e){} }
 function markPendingUp(id){ var a = pendGet(LS_PEND_UP); if(a.indexOf(id)===-1){ a.push(id); pendSet(LS_PEND_UP, a); } }
@@ -343,12 +355,12 @@ async function serverFetch(){
 }
 async function serverUpsert(m){
   if(!sb) return false;
-  try{ var res = await sb.from("workshop_memos").upsert(memoToRow(m), {onConflict:"id"}); return !res.error; }
+  try{ var res = await sb.from("workshop_memos").upsert(memoToRow(m), {onConflict:"id"}); if(res.error){ lastSyncErr = String(res.error.message||"خطأ في الرفع").slice(0,80); return false; } return true; }
   catch(e){ return false; }
 }
 async function serverDelete(id){
   if(!sb) return false;
-  try{ var res = await sb.from("workshop_memos").delete().eq("id", id); return !res.error; }
+  try{ var res = await sb.from("workshop_memos").delete().eq("id", id); if(res.error){ lastSyncErr = String(res.error.message||"خطأ في الحذف").slice(0,80); return false; } return true; }
   catch(e){ return false; }
 }
 async function flushPending(){
@@ -371,6 +383,7 @@ async function flushPending(){
     pendSet(LS_PEND_DEL, stillD);
   }catch(e){}
   flushing = false;
+  refreshSyncStatus();
 }
 async function syncNow(){
   if(!sb || syncingNow) return;
@@ -390,9 +403,10 @@ async function syncNow(){
       }
       if(saveMemos(merged)){ memos = merged; render(); }
       syncOn = true;
-      setSyncStatus("المزامنة مفعّلة ✓");
+      refreshSyncStatus();
     }
   }catch(e){
+    lastSyncErr = String((e&&e.message)||"دون اتصال").slice(0,80);
     if(!syncOn) setSyncStatus("دون اتصال — التغييرات محفوظة على هذا الجهاز وستُزامَن عند الاتصال.");
   }
   syncingNow = false;
@@ -414,8 +428,9 @@ function initSync(){
   setSyncStatus("جارٍ المزامنة…");
   syncNow();
   flushPending();
-  setInterval(function(){ if(sb && !document.hidden){ syncNow(); flushPending(); } }, 30000);
-  window.addEventListener("online", function(){ syncNow(); flushPending(); });
+  loadCatalog();
+  setInterval(function(){ if(sb && !document.hidden){ syncNow(); flushPending(); if(!catalogLoaded) loadCatalog(); } }, 30000);
+  window.addEventListener("online", function(){ syncNow(); flushPending(); loadCatalog(); });
   try{
     sb.channel("workshop-memos").on("postgres_changes", {event:"*", schema:"public", table:"workshop_memos"}, function(){ scheduleSync(); }).subscribe();
   }catch(e){}
@@ -557,6 +572,78 @@ $("confirmOverlay").addEventListener("click", function(e){
   }
 });
 
+
+/* ---------- دليل الأصناف (نفس دليل تطبيق متابعة طلبات الشراء — قراءة فقط) ---------- */
+var catalog = [];
+var catalogLoaded = false;
+var itemSug = null;
+var itemSugRow = -1;
+var itemSugHi = -1;
+var itemSugList = [];
+function hideItemSug(){ if(itemSug){ itemSug.remove(); itemSug = null; } itemSugRow = -1; itemSugHi = -1; itemSugList = []; }
+async function loadCatalog(){
+  if(!sb || catalogLoaded) return;
+  try{
+    var res = await sb.from("item_catalog").select("item_number,item_name").order("item_number", {ascending:true}).limit(500);
+    if(res.error) return;
+    catalog = (res.data||[]).map(function(r){ return {number:String(r.item_number||"").trim(), name:String(r.item_name||"").trim()}; }).filter(function(c){ return c.number && c.name; });
+    catalogLoaded = true;
+  }catch(e){}
+}
+function catalogMatches(q){
+  var t = normDigits(String(q||"")).trim().toLowerCase();
+  if(!t) return catalog.slice();
+  return catalog.filter(function(c){
+    var num = normDigits(c.number).toLowerCase();
+    return num.indexOf(t)===0 || c.name.toLowerCase().indexOf(t)!==-1;
+  });
+}
+function showItemSug(row, list, emptyText){
+  hideItemSug();
+  var wraps = $("itemsEditor").querySelectorAll(".item-name-wrap");
+  if(!wraps[row]) return;
+  itemSugRow = row;
+  itemSugList = list;
+  itemSugHi = -1;
+  var div = document.createElement("div");
+  div.className = "sug";
+  div.style.top = "calc(100% + 4px)";
+  div.style.right = "0";
+  div.style.left = "0";
+  div.innerHTML = list.map(function(c, i){
+    return '<button type="button" data-sug-i="'+i+'">'+esc(c.number)+' — '+esc(c.name)+'</button>';
+  }).join("") || '<button type="button" disabled>'+esc(emptyText||"لا توجد أصناف مطابقة")+'</button>';
+  div.addEventListener("mousedown", function(e){
+    var b = e.target.closest("button[data-sug-i]");
+    if(!b) return;
+    e.preventDefault();
+    pickItemSug(Number(b.getAttribute("data-sug-i")));
+  });
+  wraps[row].appendChild(div);
+  itemSug = div;
+}
+function paintItemSugHi(){
+  if(!itemSug) return;
+  var btns = itemSug.querySelectorAll("button[data-sug-i]");
+  btns.forEach(function(b, i){ if(i===itemSugHi) b.classList.add("sel"); else b.classList.remove("sel"); });
+}
+function pickItemSug(i){
+  var c = itemSugList[i];
+  var row = itemSugRow;
+  hideItemSug();
+  if(!c || row<0) return;
+  formItems[row].name = c.name;
+  var input = $("itemsEditor").querySelectorAll(".it-name")[row];
+  if(input){ input.value = c.name; }
+  var qty = $("itemsEditor").querySelectorAll(".it-qty")[row];
+  if(qty) qty.focus();
+}
+function showItemSugForRow(row, q){
+  if(!catalog.length) return;
+  var list = catalogMatches(q).slice(0, 8);
+  if(!list.length){ hideItemSug(); return; }
+  showItemSug(row, list);
+}
 /* ---------- نموذج التسجيل ---------- */
 var formItems = [{name:"", qty:"", notes:""}];
 function setFormItems(list){
@@ -567,9 +654,10 @@ function setFormItems(list){
   renderItemsEditor();
 }
 function renderItemsEditor(){
+  hideItemSug();
   $("itemsEditor").innerHTML = formItems.map(function(it, i){
     return '<div class="item-row">'+
-      '<div class="item-name-wrap"><input type="text" class="it-name" data-row="'+i+'" placeholder="اسم الصنف" value="'+esc(it.name)+'" autocomplete="off" maxlength="100"></div>'+
+      '<div class="item-name-wrap"><input type="text" class="it-name" data-row="'+i+'" placeholder="اسم الصنف" value="'+esc(it.name)+'" autocomplete="off" maxlength="100"><button type="button" class="combo-toggle" data-sug-row="'+i+'" aria-label="عرض كل الأصناف">▾</button></div>'+
       '<input type="text" class="it-qty" data-row="'+i+'" placeholder="العدد/الكمية" value="'+esc(it.qty)+'" autocomplete="off" maxlength="30">'+
       '<input type="text" class="it-notes notes-cell" data-row="'+i+'" placeholder="ملاحظات" value="'+esc(it.notes)+'" autocomplete="off" maxlength="200">'+
       '<button type="button" class="row-del" data-del-row="'+i+'" aria-label="حذف الصنف">✕</button>'+
@@ -587,6 +675,9 @@ $("itemsEditor").addEventListener("input", function(e){
   var i = Number(row);
   if(e.target.classList.contains("it-name")){
     formItems[i].name = e.target.value;
+    var q = e.target.value;
+    if(!q.trim()){ hideItemSug(); }
+    else{ showItemSugForRow(i, q); }
   }else if(e.target.classList.contains("it-qty")){
     formItems[i].qty = e.target.value;
   }else if(e.target.classList.contains("it-notes")){
@@ -594,6 +685,14 @@ $("itemsEditor").addEventListener("input", function(e){
   }
 });
 $("itemsEditor").addEventListener("click", function(e){
+  var sugBtn = e.target.closest("[data-sug-row]");
+  if(sugBtn){
+    var r = Number(sugBtn.getAttribute("data-sug-row"));
+    if(itemSug && itemSugRow===r){ hideItemSug(); return; }
+    if(!catalog.length){ showItemSug(r, [], "دليل الأصناف غير متاح الآن — يمكنك الكتابة يدويًا."); return; }
+    showItemSug(r, catalog.slice(0, 500));
+    return;
+  }
   var del = e.target.closest("[data-del-row]");
   if(del){
     var i = Number(del.getAttribute("data-del-row"));
@@ -621,15 +720,33 @@ document.addEventListener("keydown", function(e){
       return;
     }
     if(searchSug){ hideSearchSug(); return; }
+    if(itemSug){ hideItemSug(); return; }
     if($("previewOverlay").classList.contains("open")){ closePreview(); return; }
     if($("formOverlay").classList.contains("open")){ closeForm(); return; }
   }
+});
+document.addEventListener("click", function(e){
+  if(itemSug && !e.target.closest(".item-name-wrap") && !e.target.closest(".sug")) hideItemSug();
 });
 window.addEventListener("scroll", function(){ hideSearchSug(); }, true);
 window.addEventListener("resize", function(){ hideSearchSug(); });
 
 /* التنقل بين الخانات بالإنتر والأسهم */
 $("formOverlay").addEventListener("keydown", function(e){
+  if(itemSug && document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("it-name")){
+    if(e.key==="ArrowDown" || e.key==="ArrowUp"){
+      e.preventDefault();
+      var n = itemSugList.length;
+      if(n){ itemSugHi = e.key==="ArrowDown" ? (itemSugHi+1)%n : (itemSugHi-1+n)%n; paintItemSugHi(); }
+      return;
+    }
+    if(e.key==="Enter"){
+      if(itemSugHi>=0){ e.preventDefault(); pickItemSug(itemSugHi); }
+      else{ hideItemSug(); }
+      return;
+    }
+    if(e.key==="Escape"){ hideItemSug(); return; }
+  }
   var order = [$("fNumber"), $("fDate")];
   $("itemsEditor").querySelectorAll(".it-name,.it-qty,.it-notes").forEach(function(el){ order.push(el); });
   order.push($("saveBtn"));
@@ -688,6 +805,7 @@ function openForm(id){
   $("fNumber").focus();
 }
 function doCloseForm(){
+  hideItemSug();
   $("formOverlay").classList.remove("open");
   editingId = null;
 }
