@@ -317,6 +317,7 @@ function render(){
       '<div class="memo-items">'+items+'</div></div>'+
       '<div class="memo-actions">'+
       '<button type="button" class="btn btn-primary btn-sm" data-print="'+esc(m.id)+'">🖨️ طباعة المذكرة</button>'+
+      '<button type="button" class="btn btn-outline btn-sm" data-preview="'+esc(m.id)+'">👁️ معاينة</button>'+
       '<button type="button" class="btn btn-outline btn-sm" data-edit="'+esc(m.id)+'">تعديل</button>'+
       '<button type="button" class="btn btn-danger btn-sm" data-del="'+esc(m.id)+'">حذف</button>'+
       '</div></div></div>';
@@ -327,6 +328,7 @@ $("memoList").addEventListener("click", function(e){
   var t = e.target.closest("button");
   if(!t) return;
   if(t.hasAttribute("data-print")){ previewMemo(t.getAttribute("data-print")); return; }
+  if(t.hasAttribute("data-preview")){ previewMemo(t.getAttribute("data-preview")); return; }
   if(t.hasAttribute("data-edit")){ openForm(t.getAttribute("data-edit")); return; }
   if(t.hasAttribute("data-del")){
     var m = memos.find(function(x){ return x.id===t.getAttribute("data-del"); });
