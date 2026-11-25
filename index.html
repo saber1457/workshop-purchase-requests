@@ -78,11 +78,14 @@
   .memo tr{page-break-inside:avoid}
   .memo .sign{margin-top:46px;display:flex;justify-content:space-between;font-size:15px;font-weight:700;page-break-inside:avoid}
   .memo .sign div{width:30%;text-align:center}
+  .memo-page{margin-bottom:20px}
   #printArea{display:none}
   @media print{
     body *{visibility:hidden!important}
     #printArea,#printArea *{visibility:visible!important}
     #printArea{display:block!important;position:absolute;left:0;top:0;width:100%}
+    .memo-page{page-break-after:always}
+    .memo-page:last-child{page-break-after:auto}
   }
   @media (max-width:640px){
     header h1{font-size:19px}
@@ -102,6 +105,7 @@
     <button type="button" class="btn btn-primary" id="newMemoBtn">➕ تسجيل طلب شراء جديد</button>
     <button type="button" class="btn btn-outline" id="exportBtn">⬇️ تصدير نسخة احتياطية</button>
     <button type="button" class="btn btn-outline" id="importBtn">⬆️ استيراد نسخة احتياطية</button>
+    <button type="button" class="btn btn-outline" id="reportsBtn">📊 تقارير</button>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
     <div class="search-wrap">
       <input id="searchBox" type="text" placeholder="ابحث برقم الطلب أو اسم صنف…" autocomplete="off">
@@ -161,6 +165,16 @@
     <div class="form-actions">
       <button type="button" class="btn btn-primary" id="printFromPreviewBtn">🖨️ طباعة</button>
       <button type="button" class="btn btn-outline" id="closePreviewBtn">إغلاق</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="reportsOverlay">
+  <div class="form-card preview-box">
+    <h2>تقارير المذكرات</h2>
+    <div id="reportsBody"></div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="printReportsBtn">🖨️ طباعة الكل</button>
+      <button type="button" class="btn btn-outline" id="closeReportsBtn">إغلاق</button>
     </div>
   </div>
 </div>
@@ -415,12 +429,13 @@ function scheduleSync(){
   if(syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(function(){ syncNow(); flushPending(); }, 1500);
 }
+var memStorage = (function(){ var m = {}; return { getItem: function(k){ return Object.prototype.hasOwnProperty.call(m,k) ? m[k] : null; }, setItem: function(k,v){ m[k]=String(v); }, removeItem: function(k){ delete m[k]; } }; })();
 function initSync(){
   if(!window.supabase){
     setSyncStatus("تعمل دون مزامنة — افتح من الرابط مع الاتصال بالإنترنت للمزامنة.");
     return;
   }
-  try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+  try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storage: memStorage } }); }
   catch(e){
     setSyncStatus("تعمل دون مزامنة — افتح من الرابط مع الاتصال بالإنترنت للمزامنة.");
     return;
@@ -465,6 +480,11 @@ function render(){
     box.innerHTML = '<div class="card empty">لا توجد مذكرات مسجلة بعد — اضغط «تسجيل طلب شراء جديد» لإضافة أول طلب.</div>';
     return;
   }
+  var q = normDigits($("searchBox").value.trim()).toLowerCase();
+  if(!q){
+    box.innerHTML = '<div class="card empty">المذكرات مخفية — ابحث برقم الطلب لعرض مذكرة، أو افتح «التقارير» لعرض الكل.</div>';
+    return;
+  }
   if(!list.length){
     box.innerHTML = '<div class="card empty">لا توجد مذكرات مطابقة للبحث.</div>';
     return;
@@ -498,6 +518,7 @@ $("memoList").addEventListener("click", function(e){
         var fresh = loadMemos();
         var rest = fresh.filter(function(x){ return x.id!==m.id; });
         if(saveMemos(rest)){
+          $("searchBox").value = "";
           memos = rest;
           render();
           showStatus("تم حذف الطلب رقم "+m.number+".");
@@ -580,7 +601,8 @@ var itemSug = null;
 var itemSugRow = -1;
 var itemSugHi = -1;
 var itemSugList = [];
-function hideItemSug(){ if(itemSug){ itemSug.remove(); itemSug = null; } itemSugRow = -1; itemSugHi = -1; itemSugList = []; }
+var itemSugFull = false;
+function hideItemSug(){ if(itemSug){ itemSug.remove(); itemSug = null; } itemSugRow = -1; itemSugHi = -1; itemSugList = []; itemSugFull = false; }
 async function loadCatalog(){
   if(!sb || catalogLoaded) return;
   try{
@@ -598,11 +620,12 @@ function catalogMatches(q){
     return num.indexOf(t)===0 || c.name.toLowerCase().indexOf(t)!==-1;
   });
 }
-function showItemSug(row, list, emptyText){
+function showItemSug(row, list, emptyText, full){
   hideItemSug();
   var wraps = $("itemsEditor").querySelectorAll(".item-name-wrap");
   if(!wraps[row]) return;
   itemSugRow = row;
+  itemSugFull = !!full;
   itemSugList = list;
   itemSugHi = -1;
   var div = document.createElement("div");
@@ -688,9 +711,16 @@ $("itemsEditor").addEventListener("click", function(e){
   var sugBtn = e.target.closest("[data-sug-row]");
   if(sugBtn){
     var r = Number(sugBtn.getAttribute("data-sug-row"));
-    if(itemSug && itemSugRow===r){ hideItemSug(); return; }
+    if(itemSug && itemSugRow===r){
+      if(!itemSugFull){
+        if(!catalog.length){ showItemSug(r, [], "دليل الأصناف غير متاح الآن — يمكنك الكتابة يدويًا."); return; }
+        showItemSug(r, catalog.slice(0, 500), "", true);
+        return;
+      }
+      hideItemSug(); return;
+    }
     if(!catalog.length){ showItemSug(r, [], "دليل الأصناف غير متاح الآن — يمكنك الكتابة يدويًا."); return; }
-    showItemSug(r, catalog.slice(0, 500));
+    showItemSug(r, catalog.slice(0, 500), "", true);
     return;
   }
   var del = e.target.closest("[data-del-row]");
@@ -722,6 +752,7 @@ document.addEventListener("keydown", function(e){
     if(searchSug){ hideSearchSug(); return; }
     if(itemSug){ hideItemSug(); return; }
     if($("previewOverlay").classList.contains("open")){ closePreview(); return; }
+    if($("reportsOverlay").classList.contains("open")){ closeReports(); return; }
     if($("formOverlay").classList.contains("open")){ closeForm(); return; }
   }
 });
@@ -871,6 +902,7 @@ $("saveBtn").addEventListener("click", function(){
     btn.disabled = false;
     return;
   }
+  $("searchBox").value = num;
   memos = fresh;
   render();
   showStatus(okMsg);
@@ -917,6 +949,25 @@ $("printFromPreviewBtn").addEventListener("click", function(){
 });
 window.addEventListener("afterprint", function(){
   $("printArea").innerHTML = "";
+});
+/* ---------- التقارير: كل المذكرات تحت بعض ---------- */
+function reportsBodyHTML(){
+  if(!memos.length) return '<div class="card empty">لا توجد مذكرات مسجلة بعد.</div>';
+  return memos.map(function(m){ return "<div class='memo-page'>"+memoBodyHTML(m)+"</div>"; }).join("");
+}
+function openReports(){
+  $("reportsBody").innerHTML = reportsBodyHTML();
+  $("reportsOverlay").classList.add("open");
+}
+function closeReports(){ $("reportsOverlay").classList.remove("open"); }
+$("reportsBtn").addEventListener("click", openReports);
+$("closeReportsBtn").addEventListener("click", closeReports);
+$("reportsOverlay").addEventListener("click", function(e){
+  if(e.target === $("reportsOverlay")) closeReports();
+});
+$("printReportsBtn").addEventListener("click", function(){
+  $("printArea").innerHTML = reportsBodyHTML();
+  window.print();
 });
 /* ---------- تصدير واستيراد نسخة احتياطية ---------- */
 $("exportBtn").addEventListener("click", function(){
