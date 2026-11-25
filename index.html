@@ -55,6 +55,8 @@
   .sug button{display:block;width:100%;text-align:right;border:0;background:#fff;padding:10px 12px;font-size:14.5px;cursor:pointer;font-family:inherit;color:var(--ink)}
   .sug button:hover,.sug button.sel{background:#eaf1fb}
   .sug button small{color:var(--muted);display:block;font-size:12.5px}
+  .confirm-card{max-width:420px;text-align:center}
+  .confirm-card p{font-size:16px;line-height:1.8;margin:6px 0 16px}
   @media (max-width:640px){
     header h1{font-size:19px}
     .frow{grid-template-columns:1fr}
@@ -103,6 +105,17 @@
       <button type="button" class="btn btn-primary" id="saveBtn">حفظ الطلب</button>
       <button type="button" class="btn btn-outline" id="clearFormBtn">مسح الحقول</button>
       <button type="button" class="btn btn-outline" id="closeFormBtn">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmOverlay">
+  <div class="form-card confirm-card">
+    <h2>تأكيد</h2>
+    <p id="confirmText"></p>
+    <div class="form-actions" style="justify-content:center">
+      <button type="button" class="btn btn-danger" id="confirmYesBtn">تأكيد</button>
+      <button type="button" class="btn btn-outline" id="confirmNoBtn">إلغاء</button>
     </div>
   </div>
 </div>
@@ -201,9 +214,11 @@ $("memoList").addEventListener("click", function(e){
   if(t.hasAttribute("data-edit")){ openForm(t.getAttribute("data-edit")); return; }
   if(t.hasAttribute("data-del")){
     var m = memos.find(function(x){ return x.id===t.getAttribute("data-del"); });
-    if(m && confirm("حذف طلب رقم "+m.number+"؟")){
-      memos = memos.filter(function(x){ return x.id!==m.id; });
-      saveMemos(memos); render();
+    if(m){
+      askConfirm("حذف طلب رقم "+m.number+"؟", function(){
+        memos = memos.filter(function(x){ return x.id!==m.id; });
+        saveMemos(memos); render();
+      });
     }
   }
 });
@@ -239,6 +254,29 @@ $("searchToggle").addEventListener("click", function(){
 $("searchBox").addEventListener("focus", hideSearchSug);
 document.addEventListener("click", function(e){
   if(searchSug && !e.target.closest(".sug") && e.target.id!=="searchBox" && e.target.id!=="searchToggle") hideSearchSug();
+});
+
+/* نافذة تأكيد داخل التطبيق (بدل نافذة المتصفح) */
+var confirmYes = null;
+function askConfirm(text, onYes){
+  $("confirmText").textContent = text;
+  confirmYes = onYes;
+  $("confirmOverlay").classList.add("open");
+}
+$("confirmYesBtn").addEventListener("click", function(){
+  $("confirmOverlay").classList.remove("open");
+  var cb = confirmYes; confirmYes = null;
+  if(cb) cb();
+});
+$("confirmNoBtn").addEventListener("click", function(){
+  $("confirmOverlay").classList.remove("open");
+  confirmYes = null;
+});
+$("confirmOverlay").addEventListener("click", function(e){
+  if(e.target === $("confirmOverlay")){
+    $("confirmOverlay").classList.remove("open");
+    confirmYes = null;
+  }
 });
 
 /* ---------- نموذج التسجيل ---------- */
@@ -420,10 +458,16 @@ function openForm(id){
   $("formOverlay").classList.add("open");
   $("fNumber").focus();
 }
-function closeForm(){
-  if(formHasData() && !confirm("فيه بيانات غير محفوظة — تقفل من غير ما تحفظ؟")) return;
+function doCloseForm(){
   $("formOverlay").classList.remove("open");
   editingId = null;
+}
+function closeForm(){
+  if(formHasData()){
+    askConfirm("فيه بيانات غير محفوظة — تقفل من غير ما تحفظ؟", doCloseForm);
+  }else{
+    doCloseForm();
+  }
 }
 $("newMemoBtn").addEventListener("click", function(){ openForm(null); });
 $("closeFormBtn").addEventListener("click", closeForm);
