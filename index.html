@@ -99,6 +99,8 @@
 #catalogOverlay .form-card input[type=text]{font-size:18px}
 #catalogOverlay .form-card label{font-size:16px}
 #catalogOverlay .status{font-size:16px}
+.form-card textarea{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font-size:15.5px;font-family:inherit;resize:vertical}
+.memo .purpose{font-size:15px;margin:10px 0;line-height:1.9}
 </style>
 </head>
 <body>
@@ -145,6 +147,10 @@
       <button type="button" class="btn btn-outline btn-sm" id="addItemBtn">+ إضافة صنف</button>
     </div>
     <div id="itemsEditor"></div>
+    <div>
+      <label for="fPurpose">الغرض من الشراء (لزوم ايه؟)</label>
+      <textarea id="fPurpose" rows="2" maxlength="500" placeholder="مثال: لزوم تشغيل ماكينة البلازما" autocomplete="off"></textarea>
+    </div>
     <div class="msg" id="formMsg"></div>
     <div class="form-actions">
       <button type="button" class="btn btn-primary" id="saveBtn">حفظ الطلب</button>
@@ -298,7 +304,7 @@ function sanitizeMemo(x){
     if(!nm && !qt && !nt.trim()) return;
     cleanItems.push({name:nm, qty:qt, notes:nt});
   });
-  return {id: String(x.id==null?uid():x.id), number:num, date:String(x.date==null?"":x.date), items:cleanItems, createdAt: Number(x.createdAt)||Date.now(), updatedAt: Number(x.updatedAt)||Number(x.createdAt)||Date.now()};
+  return {id: String(x.id==null?uid():x.id), number:num, date:String(x.date==null?"":x.date), items:cleanItems, purpose: String(x.purpose==null?"":x.purpose).trim().slice(0,500), createdAt: Number(x.createdAt)||Date.now(), updatedAt: Number(x.updatedAt)||Number(x.createdAt)||Date.now()};
 }
 function loadMemos(){
   var raw = null;
@@ -375,10 +381,10 @@ function markPendingDel(id, number){
   var u = pendGet(LS_PEND_UP); var i = u.indexOf(id); if(i!==-1){ u.splice(i,1); pendSet(LS_PEND_UP, u); }
 }
 function rowToMemo(r){
-  return sanitizeMemo({id:r.id, number:r.request_number, date:r.request_date, items:r.items, createdAt:r.created_at?Date.parse(r.created_at):Date.now(), updatedAt:r.updated_at?Date.parse(r.updated_at):undefined});
+  return sanitizeMemo({id:r.id, number:r.request_number, date:r.request_date, items:r.items, purpose:r.purpose, createdAt:r.created_at?Date.parse(r.created_at):Date.now(), updatedAt:r.updated_at?Date.parse(r.updated_at):undefined});
 }
 function memoToRow(m){
-  return {id:m.id, request_number:m.number, request_date:m.date, items:m.items, updated_at:new Date(m.updatedAt||m.createdAt||Date.now()).toISOString()};
+  return {id:m.id, request_number:m.number, request_date:m.date, items:m.items, purpose:m.purpose||null, updated_at:new Date(m.updatedAt||m.createdAt||Date.now()).toISOString()};
 }
 function mergeMemos(local, server){
   var byId = {};
@@ -851,12 +857,14 @@ $("formOverlay").addEventListener("keydown", function(e){
   }
   var order = [$("fNumber"), $("fDate")];
   $("itemsEditor").querySelectorAll(".it-name,.it-qty,.it-notes").forEach(function(el){ order.push(el); });
+  order.push($("fPurpose"));
   order.push($("saveBtn"));
   var idx = order.indexOf(document.activeElement);
   if(idx===-1) return;
   if(e.key==="Enter" || e.key==="ArrowDown" || e.key==="ArrowUp"){
     if(document.activeElement === $("saveBtn")) return;
     if(document.activeElement === $("fDate") && e.key!=="Enter") return;
+    if(document.activeElement === $("fPurpose") && e.key==="Enter") return;
     e.preventDefault();
     if(e.key==="Enter" && document.activeElement.classList && document.activeElement.classList.contains("it-notes")){
       var notes = $("itemsEditor").querySelectorAll(".it-notes");
@@ -878,10 +886,10 @@ $("formOverlay").addEventListener("keydown", function(e){
 /* فتح/إغلاق النموذج */
 var formSnapshot = "";
 function snapshotForm(){
-  formSnapshot = JSON.stringify({n:$("fNumber").value, d:$("fDate").value, items:collectFormItems()});
+  formSnapshot = JSON.stringify({n:$("fNumber").value, d:$("fDate").value, p:$("fPurpose").value, items:collectFormItems()});
 }
 function formHasData(){
-  return JSON.stringify({n:$("fNumber").value, d:$("fDate").value, items:collectFormItems()}) !== formSnapshot;
+  return JSON.stringify({n:$("fNumber").value, d:$("fDate").value, p:$("fPurpose").value, items:collectFormItems()}) !== formSnapshot;
 }
 function openForm(id){
   editingId = id || null;
@@ -894,12 +902,14 @@ function openForm(id){
     $("saveBtn").textContent = "حفظ التعديلات";
     $("fNumber").value = m.number;
     $("fDate").value = m.date;
+    $("fPurpose").value = m.purpose||"";
     setFormItems(m.items);
   }else{
     $("formTitle").textContent = "تسجيل طلب شراء";
     $("saveBtn").textContent = "حفظ الطلب";
     $("fNumber").value = "";
     $("fDate").value = todayISO();
+    $("fPurpose").value = "";
     setFormItems([]);
   }
   $("formOverlay").classList.add("open");
@@ -931,6 +941,7 @@ $("clearFormBtn").addEventListener("click", function(){
     $("saveBtn").disabled = false;
     $("fNumber").value = "";
     $("fDate").value = todayISO();
+    $("fPurpose").value = "";
     setFormItems([]);
     $("formMsg").textContent = "";
     snapshotForm();
@@ -945,6 +956,7 @@ $("saveBtn").addEventListener("click", function(){
   var num = $("fNumber").value.trim();
   var date = $("fDate").value;
   var items = collectFormItems();
+  var purpose = $("fPurpose").value.trim().slice(0,500);
   var msg = $("formMsg");
   function err(t){ msg.textContent = t; msg.className = "msg err"; }
   if(!num || !date){ err("من فضلك املأ رقم الطلب وتاريخ الطلب."); return; }
@@ -960,12 +972,12 @@ $("saveBtn").addEventListener("click", function(){
   if(editingId){
     var m = fresh.find(function(x){ return x.id===editingId; });
     if(!m){ err("المذكرة دي اتحذفت من مكان تاني — افتحها من السجل من جديد."); btn.disabled = false; return; }
-    m.number = num; m.date = date; m.items = items; m.updatedAt = Date.now();
+    m.number = num; m.date = date; m.items = items; m.purpose = purpose; m.updatedAt = Date.now();
     okMsg = "تم حفظ التعديلات.";
     savedId = editingId;
   }else{
     savedId = uid();
-    fresh.unshift({id: savedId, number: num, date: date, items: items, createdAt: Date.now(), updatedAt: Date.now()});
+    fresh.unshift({id: savedId, number: num, date: date, items: items, purpose: purpose, createdAt: Date.now(), updatedAt: Date.now()});
     okMsg = "تم تسجيل الطلب رقم "+num+".";
   }
   if(!saveMemos(fresh)){
@@ -992,6 +1004,7 @@ function memoBodyHTML(m){
     "<div class='r head'>قطاع الهندسة الصناعية<br>الإدارة العامة للورش<br>ورشة أعمال الصاج<br>التاريخ: "+esc(fmtD(m.date))+"</div>"+
     "<div class='c memo-title'>مذكرة للعرض على السيد المهندس<br>رئيس قطاعات المصانع</div>"+
     "<div class='r intro'>برجاء التكرم بالموافقة على شراء الاصناف التالية</div>"+
+    (m.purpose ? "<div class='r purpose'>وذلك لزوم: "+esc(m.purpose)+"</div>" : "")+
     "<table><thead><tr><th style='width:7%'>م</th><th style='width:43%'>اسم الصنف</th><th style='width:20%'>العدد/الكمية</th><th style='width:30%'>ملاحظات</th></tr></thead><tbody>"+rows+"</tbody></table>"+
     "<div class='sign'><div>الرئيس المباشر</div><div>مدير عام الورش</div><div>رئيس قطاع الهندسة الصناعية</div></div>"+
     "</div>";
