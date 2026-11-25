@@ -611,12 +611,9 @@ $("saveBtn").addEventListener("click", function(){
 
 /* ---------- معاينة وطباعة المذكرة ---------- */
 function memoBodyHTML(m){
-  var rows = (m.items||[]).map(function(it, i){
+  var rows = (m.items||[]).filter(function(it){ return (it.name||"").trim(); }).map(function(it, i){
     return "<tr><td style='text-align:center'>"+(i+1)+"</td><td>"+esc(it.name)+"</td><td style='text-align:center'>"+esc(it.qty)+"</td><td>"+esc(it.notes||"")+"</td></tr>";
   }).join("");
-  for(var k=0;k<3;k++){
-    rows += "<tr><td style='text-align:center'>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>";
-  }
   return "<div class='memo'>"+
     "<div class='c'><h1>شركة الدلتا للسكر</h1></div>"+
     "<div class='r head'>قطاع الهندسة الصناعية<br>الإدارة العامة للورش<br>ورشة أعمال الصاج<br>التاريخ: "+esc(fmtD(m.date))+"</div>"+
