@@ -42,8 +42,7 @@
   .items-head h3{margin:0;font-size:16px}
   .item-row{display:grid;grid-template-columns:1.6fr .7fr 1fr 34px;gap:8px;margin-top:8px;align-items:start}
   .item-name-wrap{position:relative}
-  .item-name-wrap input{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px 10px 34px;font-size:15px;font-family:inherit}
-  .item-name-wrap .combo-toggle{left:4px}
+  .item-name-wrap input{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font-size:15px;font-family:inherit}
   .item-row input[type=text]{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font-size:15px;font-family:inherit}
   .row-del{border:0;background:#fdecea;color:var(--red);border-radius:8px;width:34px;height:42px;font-size:16px;cursor:pointer}
   .form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
@@ -166,7 +165,6 @@
 
 <script>
 "use strict";
-var CATALOG = [{"n": "44110252", "name": "سلك لحام حديد 2.5 مم 6013"}, {"n": "44110301", "name": "سلك لحام 3 مم كهرباء"}, {"n": "44110302", "name": "بكرة سلك لحام CO2 -1.2MM FULX 71T"}, {"n": "44110401", "name": "سلك لحام كهرباء حديد 4 مم"}, {"n": "44120253", "name": "سلك لحام 7018 قطر 2.5 مم A1"}, {"n": "44120302", "name": "سلك لحام 7018 قطر 3 مم"}, {"n": "44120402", "name": "سلك لحام حديد 7018 4 مم"}, {"n": "44130100", "name": "بكرة سلك لحام S.T 308 1.2MMM"}, {"n": "44130101", "name": "بكرة سلك لحام ST.ST 309 -1.2MM"}, {"n": "44130253", "name": "سلك لحام اس.اس 2.5 مم 308/16"}, {"n": "44130254", "name": "سلك لحام استانلس 2.5 مم 309L"}, {"n": "44130302", "name": "سلك لحام استانلس 309 3 مم"}, {"n": "44130303", "name": "سلك لحام استانلس 316 3 مم"}, {"n": "44160106", "name": "سلك لحام ارجون 1.6 مم 309"}, {"n": "44160265", "name": "سلك لحام ارجون 2.4 مم S70"}, {"n": "44170250", "name": "سلك لحام ارجون 2.4 مم ST.ST 309"}, {"n": "22121050", "name": "صاج بقلاوة 5 مم"}, {"n": "22121060", "name": "صاج بقلاوة 6 مم"}, {"n": "22121080", "name": "صاج حديد بقلاوة 8 مم"}, {"n": "22122036", "name": "لوح صاج مجري مطر مصنع"}, {"n": "22122038", "name": "لوح صاج حديد 3 مم"}, {"n": "22122040", "name": "صاج حديد عاده 4 مم"}, {"n": "22122044", "name": "صاج 4 مم astm615 gr70"}, {"n": "22122050", "name": "صاج حديد عاده 5 مم"}, {"n": "22122060", "name": "صاج حديد اسود 6 مم"}, {"n": "22122070", "name": "صاج حديد عاده 7 مم"}, {"n": "22122080", "name": "صاج حديد عادة 8 مم"}, {"n": "22122100", "name": "صاج حديد اسود 10 مم"}, {"n": "22122120", "name": "صاج حديد اسود 12 مم"}, {"n": "22122140", "name": "صاج حديد اسود 14 مم"}, {"n": "22122160", "name": "صاج حديد اسود 16 مم"}, {"n": "22130300", "name": "لوح صاج استانلس 3 مم"}, {"n": "22130304", "name": "صاج استانلس 3 مم 304"}, {"n": "22130400", "name": "صاج اس اس 4 مم"}, {"n": "22130500", "name": "لوح صاج اس اس 5 مم 304"}, {"n": "22130600", "name": "لوح صاج اس اس 6 مم"}, {"n": "22130800", "name": "صاج استانلس 8 مم"}, {"n": "22210100", "name": "كمر حديد عادة 100 مم"}, {"n": "22210120", "name": "كمر حديد عادة 120 مم"}, {"n": "22210140", "name": "كمر حديد عادة 140 مم"}, {"n": "22210160", "name": "كمر حديد عادة 160 مم"}, {"n": "22210180", "name": "كمر حديد عادة 180 مم"}, {"n": "22210200", "name": "كمر حديد عادة 200 مم"}, {"n": "22210220", "name": "كمر حديد عادة 220 مم"}, {"n": "22210400", "name": "كمر حديد عادة 400 مم"}, {"n": "22213038", "name": "علبة حديد 50*50 مم"}, {"n": "22213050", "name": "كمرة مستطيلة 50×150 (اللب)"}, {"n": "22213080", "name": "كمر حديد مجري 80 مم"}, {"n": "22213100", "name": "كمر حديد مجري 100 مم"}, {"n": "22213120", "name": "كمر حديد مجري 120 مم"}, {"n": "22213140", "name": "كمر حديد مجري 140 مم"}, {"n": "22213160", "name": "كمر مجري حديد 160 مم"}, {"n": "22213200", "name": "كمر مجري حديد 200 مم"}, {"n": "22214140", "name": "كمر انجليزى HEB 140 مم"}, {"n": "22214160", "name": "كمر انجليزي 160 مم"}, {"n": "22214201", "name": "كمر انجليزي HEB 200 مم"}, {"n": "22214220", "name": "كمر حديد H220"}, {"n": "22214302", "name": "كمر انجليزي HEB 300 مم"}, {"n": "22214360", "name": "كمر انجليزي HEA 360 مم"}, {"n": "22310050", "name": "زاوية حديد 50*50"}, {"n": "22310060", "name": "زاوية حديد 60*60"}, {"n": "22310070", "name": "زاوية حديد 70*70*70 مم"}, {"n": "22310100", "name": "زاوية حديد 100*100"}, {"n": "22310120", "name": "زاوية حديد 120*120"}, {"n": "22310150", "name": "زاوية حديد 150*150"}, {"n": "22406019", "name": "خوصة حديد 20 مم × 40 مم"}, {"n": "32130357", "name": "ماسورة اس اس 35/32 مم بطول 3.45 متر"}, {"n": "32132500", "name": "ماسورة اس اس 250 مم"}, {"n": "32133000", "name": "ماسورة اس اس 300 مم 12\""}, {"n": "32134000", "name": "ماسورة اس اس 400 مم"}, {"n": "321509901", "name": "ماسورة اس اس للطبخ 10.6×440×1440 مم"}, {"n": "321509902", "name": "ماسورة اس اس للطبخ 10.6×410×1440 مم"}, {"n": "321509910", "name": "ماسورة اس اس 100 مم *1.4 متر للط"}, {"n": "321509920", "name": "ماسورة اس اس 10.6 *طول 1 متر للطبخ"}, {"n": "321509925", "name": "ماسورة استانلس للطبخ 10.6×2×1.14م"}, {"n": "321509926", "name": "ماسورة استانلس 10.6 مم * 1.40 متر"}, {"n": "32180125", "name": "فارغة جراب لبستم 125 مم *26 سم"}, {"n": "32181100", "name": "ماسورة ض ع 4 بوصة"}, {"n": "32181150", "name": "ماسورة ض ع 6 بوصة"}, {"n": "32181170", "name": "ماسورة حديد قطرداخلى 270 مم سمك 25 مم"}, {"n": "32181250", "name": "ماسورة ض ع 10 بوصة"}, {"n": "32190252", "name": "ماسورة حديد سملس 1 بوصة - جدول 20"}, {"n": "32190269", "name": "ماسورة حديد سملس 1.5 بوصة جدول 20"}, {"n": "32190501", "name": "ماسورة حديد سملس 2 بوصة - جدول 20"}, {"n": "32190620", "name": "ماسوره سملس 2.5 بوصه"}, {"n": "32190750", "name": "ماسوره سملس 3 بوصه ج.40"}, {"n": "32190751", "name": "ماسورة حديد سملس 3 بوصة - جدول 20"}, {"n": "32191000", "name": "ماسوره سملس 4 بوصه ج.40"}, {"n": "32191001", "name": "ماسورة حديد سملس 4 بوصة - جدول 20"}, {"n": "32191251", "name": "ماسورة حديد سملس 5 بوصة - جدول 20"}, {"n": "32191501", "name": "ماسورة حديد سملس 6 بوصة - جدول 20"}, {"n": "32192000", "name": "ماسورة سملس 8 بوصة"}, {"n": "32192001", "name": "ماسورة حديد سملس 8 بوصة - جدول 20"}, {"n": "32192499", "name": "ماسورة حديد سملس 10 بوصة - جدول 20"}, {"n": "32192500", "name": "ماسورة سملس 10 بوصة ج.40"}, {"n": "32193000", "name": "ماسورة سملس 12 بوصة ج.40"}, {"n": "32193001", "name": "ماسورة حديد سملس 12 بوصة - جدول 20"}, {"n": "32193500", "name": "ماسورة سملس 350 مم 14 بوصة"}, {"n": "32195001", "name": "ماسورة حديد سملس 20 بوصة قطر 500 مم"}, {"n": "32196001", "name": "ماسورة حديد سملس 24 بوصة قطر 600 مم"}, {"n": "32197000", "name": "ماسورة بخار 16\"-تربينة 2"}, {"n": "32197001", "name": "ماسورة سملس 10\" تربينة 2"}, {"n": "32197002", "name": "ماسورة سملس 8\" تربينة 2"}, {"n": "32197003", "name": "ماسورة سملس 20\" تربينة 2"}, {"n": "32197004", "name": "ماسورة سملس 24\" تربينة 2"}, {"n": "32197005", "name": "ماسورة سملس 32\" تربينة 2"}, {"n": "32197006", "name": "ماسورة سملس 6\" تربينة 2"}, {"n": "32197007", "name": "ماسورة سملس 2\" تربينة 2"}, {"n": "32197008", "name": "ماسورة سملس 3\" تربينة 2"}, {"n": "32197009", "name": "ماسورة بخار 10\" تربينة 2"}];
 
 /* ---------- أدوات ---------- */
 function $(id){ return document.getElementById(id); }
@@ -422,8 +420,7 @@ function setFormItems(list){
 function renderItemsEditor(){
   $("itemsEditor").innerHTML = formItems.map(function(it, i){
     return '<div class="item-row">'+
-      '<div class="item-name-wrap"><input type="text" class="it-name" data-row="'+i+'" placeholder="اسم الصنف" value="'+esc(it.name)+'" autocomplete="off" maxlength="100">'+
-      '<button type="button" class="combo-toggle" data-item-arrow="'+i+'" aria-label="عرض كل الأصناف">▾</button></div>'+
+      '<div class="item-name-wrap"><input type="text" class="it-name" data-row="'+i+'" placeholder="اسم الصنف" value="'+esc(it.name)+'" autocomplete="off" maxlength="100"></div>'+
       '<input type="text" class="it-qty" data-row="'+i+'" placeholder="العدد/الكمية" value="'+esc(it.qty)+'" autocomplete="off" maxlength="30">'+
       '<input type="text" class="it-notes notes-cell" data-row="'+i+'" placeholder="ملاحظات" value="'+esc(it.notes)+'" autocomplete="off" maxlength="200">'+
       '<button type="button" class="row-del" data-del-row="'+i+'" aria-label="حذف الصنف">✕</button>'+
@@ -441,7 +438,6 @@ $("itemsEditor").addEventListener("input", function(e){
   var i = Number(row);
   if(e.target.classList.contains("it-name")){
     formItems[i].name = e.target.value;
-    showItemSuggest(e.target, false);
   }else if(e.target.classList.contains("it-qty")){
     formItems[i].qty = e.target.value;
   }else if(e.target.classList.contains("it-notes")){
@@ -460,12 +456,6 @@ $("itemsEditor").addEventListener("click", function(e){
     if(names[fi]) names[fi].focus();
     return;
   }
-  var arrow = e.target.closest("[data-item-arrow]");
-  if(arrow){
-    var idx = Number(arrow.getAttribute("data-item-arrow"));
-    var input = $("itemsEditor").querySelector('.it-name[data-row="'+idx+'"]');
-    if(input){ input.focus(); showItemSuggest(input, true); }
-  }
 });
 $("addItemBtn").addEventListener("click", function(){
   formItems.push({name:"", qty:"", notes:""});
@@ -474,45 +464,6 @@ $("addItemBtn").addEventListener("click", function(){
   if(inputs.length) inputs[inputs.length-1].focus();
 });
 
-/* اقتراحات اسم الصنف من الدليل المدمج */
-var itemSug = null, itemSugInput = null, itemSugSel = -1;
-function hideItemSuggest(){ if(itemSug){ itemSug.remove(); itemSug = null; itemSugInput = null; itemSugSel = -1; } }
-function showItemSuggest(input, showAll){
-  hideItemSuggest();
-  var q = (input.value||"").trim().toLowerCase();
-  var list = showAll ? CATALOG.slice(0, 500) : CATALOG.filter(function(it){
-    return !q || it.n.indexOf(q)!==-1 || it.name.toLowerCase().indexOf(q)!==-1;
-  }).slice(0, 8);
-  if(!list.length) return;
-  var r = input.getBoundingClientRect();
-  var div = document.createElement("div");
-  div.className = "sug";
-  div.style.top = (r.bottom + window.scrollY + 4) + "px";
-  div.style.right = (window.innerWidth - r.right) + "px";
-  div.style.minWidth = r.width + "px";
-  div.innerHTML = list.map(function(it, idx){
-    return '<button type="button" data-sug="'+idx+'" data-num="'+esc(it.n)+'" data-name="'+esc(it.name)+'">'+esc(it.name)+'<small>رقم الصنف: '+esc(it.n)+'</small></button>';
-  }).join("");
-  div._items = list;
-  div.addEventListener("mousedown", function(e){
-    var b = e.target.closest("button[data-sug]");
-    if(!b) return;
-    e.preventDefault();
-    pickItemSuggestion(b);
-  });
-  document.body.appendChild(div);
-  itemSug = div; itemSugInput = input; itemSugSel = -1;
-}
-function pickItemSuggestion(btn){
-  if(!itemSugInput) return;
-  var row = Number(itemSugInput.getAttribute("data-row"));
-  var name = btn.getAttribute("data-name");
-  itemSugInput.value = name;
-  formItems[row].name = name;
-  hideItemSuggest();
-  var qty = $("itemsEditor").querySelector('.it-qty[data-row="'+row+'"]');
-  if(qty) qty.focus();
-}
 document.addEventListener("keydown", function(e){
   if(e.key==="Escape"){
     if($("confirmOverlay").classList.contains("open")){
@@ -520,48 +471,16 @@ document.addEventListener("keydown", function(e){
       confirmYes = null;
       return;
     }
-    if(itemSug){ hideItemSuggest(); return; }
     if(searchSug){ hideSearchSug(); return; }
     if($("previewOverlay").classList.contains("open")){ closePreview(); return; }
     if($("formOverlay").classList.contains("open")){ closeForm(); return; }
   }
-  if(itemSug && itemSugInput){
-    var btns = itemSug.querySelectorAll("button[data-sug]");
-    if(e.key==="ArrowDown" || e.key==="ArrowUp"){
-      e.preventDefault();
-      if(e.key==="ArrowDown"){
-        itemSugSel = Math.min(itemSugSel+1, btns.length-1);
-      }else{
-        itemSugSel = itemSugSel<0 ? btns.length-1 : Math.max(itemSugSel-1, 0);
-      }
-      btns.forEach(function(b){ b.classList.remove("sel"); });
-      if(btns[itemSugSel]) btns[itemSugSel].classList.add("sel");
-    }else if(e.key==="Enter" && itemSugSel>=0 && btns[itemSugSel]){
-      e.preventDefault();
-      pickItemSuggestion(btns[itemSugSel]);
-    }
-  }
 });
-document.addEventListener("click", function(e){
-  if(itemSug && !e.target.closest(".sug") && !e.target.classList.contains("it-name") && !e.target.hasAttribute("data-item-arrow")) hideItemSuggest();
-});
-window.addEventListener("scroll", function(){ hideItemSuggest(); hideSearchSug(); }, true);
-window.addEventListener("resize", function(){ hideItemSuggest(); hideSearchSug(); });
-$("itemsEditor").addEventListener("focusout", function(e){
-  if(e.target.classList && e.target.classList.contains("it-name")){
-    setTimeout(function(){
-      if(document.activeElement === e.target) return;
-      hideItemSuggest();
-    }, 150);
-  }
-});
+window.addEventListener("scroll", function(){ hideSearchSug(); }, true);
+window.addEventListener("resize", function(){ hideSearchSug(); });
 
 /* التنقل بين الخانات بالإنتر والأسهم */
 $("formOverlay").addEventListener("keydown", function(e){
-  if(itemSug){
-    if(e.key==="Enter" && itemSugSel<0){ hideItemSuggest(); }
-    else { return; }
-  }
   var order = [$("fNumber"), $("fDate")];
   $("itemsEditor").querySelectorAll(".it-name,.it-qty,.it-notes").forEach(function(el){ order.push(el); });
   order.push($("saveBtn"));
