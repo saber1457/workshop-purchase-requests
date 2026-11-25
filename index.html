@@ -173,7 +173,6 @@
     <h2>تقارير المذكرات</h2>
     <div id="reportsBody"></div>
     <div class="form-actions">
-      <button type="button" class="btn btn-primary" id="printReportsBtn">🖨️ طباعة الكل</button>
       <button type="button" class="btn btn-outline" id="closeReportsBtn">إغلاق</button>
     </div>
   </div>
@@ -319,6 +318,7 @@ var sb = null, syncOn = false, syncingNow = false, flushing = false, syncTimer =
 var lastSyncErr = "";
 var LS_PEND_UP = "workshopMemosV1.pendingUp";
 var LS_PEND_DEL = "workshopMemosV1.pendingDel";
+var LS_PEND_DEL_INFO = "workshopMemosV1.pendingDelInfo";
 function setSyncStatus(t){ var el = $("syncStatus"); if(el) el.textContent = t; }
 function refreshSyncStatus(){
   var pend = pendGet(LS_PEND_UP).length + pendGet(LS_PEND_DEL).length;
@@ -332,8 +332,11 @@ function refreshSyncStatus(){
 function pendGet(k){ try{ var a = JSON.parse(localStorage.getItem(k)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function pendSet(k, a){ try{ localStorage.setItem(k, JSON.stringify(a)); }catch(e){} }
 function markPendingUp(id){ var a = pendGet(LS_PEND_UP); if(a.indexOf(id)===-1){ a.push(id); pendSet(LS_PEND_UP, a); } }
-function markPendingDel(id){
+function pendDelInfoGet(){ try{ var o = JSON.parse(localStorage.getItem(LS_PEND_DEL_INFO)||"{}"); return (o && typeof o==="object") ? o : {}; }catch(e){ return {}; } }
+function pendDelInfoSet(o){ try{ localStorage.setItem(LS_PEND_DEL_INFO, JSON.stringify(o)); }catch(e){} }
+function markPendingDel(id, number){
   var a = pendGet(LS_PEND_DEL); if(a.indexOf(id)===-1){ a.push(id); pendSet(LS_PEND_DEL, a); }
+  var info = pendDelInfoGet(); info[id] = String(number||id); pendDelInfoSet(info);
   var u = pendGet(LS_PEND_UP); var i = u.indexOf(id); if(i!==-1){ u.splice(i,1); pendSet(LS_PEND_UP, u); }
 }
 function rowToMemo(r){
@@ -377,6 +380,26 @@ async function serverDelete(id){
   try{ var res = await sb.from("workshop_memos").delete().eq("id", id); if(res.error){ lastSyncErr = String(res.error.message||"خطأ في الحذف").slice(0,80); return false; } return true; }
   catch(e){ return false; }
 }
+async function serverFetchDeletes(){
+  if(!sb) return {};
+  try{
+    var res = await sb.from("workshop_memo_deletes").select("id");
+    if(res.error) return {};
+    var map = {};
+    (res.data||[]).forEach(function(r){ map[r.id] = true; });
+    return map;
+  }catch(e){ return {}; }
+}
+async function serverDeleteMemo(id, number){
+  if(!sb) return false;
+  try{
+    var t = await sb.from("workshop_memo_deletes").insert({id:id, request_number:String(number||id)});
+    if(t.error && t.error.code !== "23505"){ lastSyncErr = String(t.error.message||"خطأ في الحذف").slice(0,80); return false; }
+    var d = await sb.from("workshop_memos").delete().eq("id", id);
+    if(d.error){ lastSyncErr = String(d.error.message||"خطأ في الحذف").slice(0,80); return false; }
+    return true;
+  }catch(e){ return false; }
+}
 async function flushPending(){
   if(!sb || flushing) return;
   flushing = true;
@@ -390,11 +413,15 @@ async function flushPending(){
     }
     pendSet(LS_PEND_UP, still);
     var dels = pendGet(LS_PEND_DEL);
+    var delInfo = pendDelInfoGet();
     var stillD = [];
+    var stillInfo = {};
     for(var j=0;j<dels.length;j++){
-      if(!(await serverDelete(dels[j]))) stillD.push(dels[j]);
+      var num = delInfo[dels[j]] || dels[j];
+      if(!(await serverDeleteMemo(dels[j], num))){ stillD.push(dels[j]); stillInfo[dels[j]] = num; }
     }
     pendSet(LS_PEND_DEL, stillD);
+    pendDelInfoSet(stillInfo);
   }catch(e){}
   flushing = false;
   refreshSyncStatus();
@@ -404,10 +431,17 @@ async function syncNow(){
   syncingNow = true;
   try{
     var server = await serverFetch();
+    var deletedIds = await serverFetchDeletes();
     if(server){
-      var merged = mergeMemos(loadMemos(), server);
+      var local = loadMemos();
+      var kept = local.filter(function(m){ return !deletedIds[m.id]; });
+      var ups = pendGet(LS_PEND_UP).filter(function(id){ return !deletedIds[id]; });
+      pendSet(LS_PEND_UP, ups);
+      var liveServer = server.filter(function(x){ return !deletedIds[x.id]; });
+      server.forEach(function(x){ if(deletedIds[x.id]){ serverDelete(x.id); } });
+      var merged = mergeMemos(kept, liveServer);
       var serverIds = {};
-      server.forEach(function(x){ serverIds[x.id] = x; });
+      liveServer.forEach(function(x){ serverIds[x.id] = x; });
       for(var i=0;i<merged.length;i++){
         var m = merged[i];
         var sv = serverIds[m.id];
@@ -522,7 +556,7 @@ $("memoList").addEventListener("click", function(e){
           memos = rest;
           render();
           showStatus("تم حذف الطلب رقم "+m.number+".");
-          markPendingDel(m.id); flushPending();
+          markPendingDel(m.id, m.number); flushPending();
         }else{
           memos = loadMemos();
           render();
@@ -950,13 +984,37 @@ $("printFromPreviewBtn").addEventListener("click", function(){
 window.addEventListener("afterprint", function(){
   $("printArea").innerHTML = "";
 });
-/* ---------- التقارير: كل المذكرات تحت بعض ---------- */
-function reportsBodyHTML(){
+/* ---------- التقارير: تقرير منفصل لكل مذكرة لوحدها ---------- */
+var reportsCurrentId = null;
+function reportsListHTML(){
   if(!memos.length) return '<div class="card empty">لا توجد مذكرات مسجلة بعد.</div>';
-  return memos.map(function(m){ return "<div class='memo-page'>"+memoBodyHTML(m)+"</div>"; }).join("");
+  return memos.map(function(m){
+    return '<div class="card"><div class="memo-row"><div class="memo-info">'+
+      '<b>طلب رقم '+esc(m.number)+'</b> &nbsp;•&nbsp; التاريخ: '+esc(fmtD(m.date))+' &nbsp;•&nbsp; الأصناف: '+(m.items||[]).length+
+      '<div class="memo-items">'+esc(memoItemsText(m))+'</div></div>'+
+      '<div class="memo-actions"><button type="button" class="btn btn-primary btn-sm" data-report="'+esc(m.id)+'">📄 عرض التقرير</button></div></div></div>';
+  }).join("");
+}
+function renderReports(){
+  if(reportsCurrentId){
+    var m = memos.find(function(x){ return x.id===reportsCurrentId; });
+    if(!m){ reportsCurrentId = null; $("reportsBody").innerHTML = reportsListHTML(); return; }
+    $("reportsBody").innerHTML =
+      '<div class="form-actions" style="margin-bottom:10px"><button type="button" class="btn btn-outline btn-sm" id="backReportsBtn">← رجوع لقائمة التقارير</button>'+
+      '<button type="button" class="btn btn-primary btn-sm" id="printOneReportBtn">🖨️ طباعة التقرير</button></div>'+
+      "<div class='memo-page'>"+memoBodyHTML(m)+"</div>";
+    $("backReportsBtn").addEventListener("click", function(){ reportsCurrentId = null; renderReports(); });
+    $("printOneReportBtn").addEventListener("click", function(){
+      $("printArea").innerHTML = memoBodyHTML(m);
+      window.print();
+    });
+    return;
+  }
+  $("reportsBody").innerHTML = reportsListHTML();
 }
 function openReports(){
-  $("reportsBody").innerHTML = reportsBodyHTML();
+  reportsCurrentId = null;
+  renderReports();
   $("reportsOverlay").classList.add("open");
 }
 function closeReports(){ $("reportsOverlay").classList.remove("open"); }
@@ -965,9 +1023,11 @@ $("closeReportsBtn").addEventListener("click", closeReports);
 $("reportsOverlay").addEventListener("click", function(e){
   if(e.target === $("reportsOverlay")) closeReports();
 });
-$("printReportsBtn").addEventListener("click", function(){
-  $("printArea").innerHTML = reportsBodyHTML();
-  window.print();
+$("reportsBody").addEventListener("click", function(e){
+  var b = e.target.closest("[data-report]");
+  if(!b) return;
+  reportsCurrentId = b.getAttribute("data-report");
+  renderReports();
 });
 /* ---------- تصدير واستيراد نسخة احتياطية ---------- */
 $("exportBtn").addEventListener("click", function(){
