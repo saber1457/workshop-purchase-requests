@@ -99,6 +99,10 @@
 #catalogOverlay .form-card input[type=text]{font-size:18px}
 #catalogOverlay .form-card label{font-size:16px}
 #catalogOverlay .status{font-size:16px}
+#catalogOverlay .cat-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#catalogOverlay .cat-row .cat-text{flex:1;min-width:0}
+#catalogOverlay .cat-row .btn-sm{font-size:15px;min-height:38px;padding:8px 12px}
+#catalogOverlay .cat-edit-input{flex:1;min-width:0;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:18px;font-family:inherit;background:#fff;color:var(--ink)}
 .form-card textarea{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:10px 12px;font-size:15.5px;font-family:inherit;resize:vertical}
 .memo .purpose{font-size:15px;margin:10px 0;line-height:1.9}
 </style>
@@ -392,7 +396,9 @@ function mergeMemos(local, server){
   server.forEach(function(s){
     var l = byId[s.id];
     if(!l){ byId[s.id] = s; return; }
-    if((s.updatedAt||s.createdAt||0) > (l.updatedAt||l.createdAt||0)) byId[s.id] = s;
+    var sT = s.updatedAt||s.createdAt||0, lT = l.updatedAt||l.createdAt||0;
+    if(sT > lT){ byId[s.id] = s; return; }
+    if(sT === lT && !l.purpose && s.purpose){ l.purpose = s.purpose; }
   });
   var byNum = {};
   Object.keys(byId).forEach(function(id){
@@ -1080,6 +1086,13 @@ $("reportsBody").addEventListener("click", function(e){
   renderReports();
 });
 /* ---------- دليل الأصناف: عرض وبحث وإضافة (نفس دليل تطبيق المتابعة) ---------- */
+var editingCatNum = null;
+var editingCatDraft = null;
+function catFind(num){
+  var k = normDigits(num);
+  for(var i=0;i<catalog.length;i++){ if(normDigits(catalog[i].number)===k) return catalog[i]; }
+  return null;
+}
 function renderCatalogList(){
   var body = $("catalogList");
   if(!body) return;
@@ -1093,7 +1106,17 @@ function renderCatalogList(){
   $("catalogCount").textContent = "عدد الأصناف: " + list.length + (q ? (" من أصل " + catalog.length) : "");
   if(!list.length){ body.innerHTML = '<div class="card empty">لا توجد أصناف مطابقة.</div>'; return; }
   body.innerHTML = list.map(function(c){
-    return '<div class="card cat-row"><b>' + esc(c.number) + '</b> — ' + esc(c.name) + '</div>';
+    if(editingCatNum !== null && normDigits(c.number) === editingCatNum){
+      var d = editingCatDraft || {number: c.number, name: c.name};
+      return '<div class="card cat-row">' +
+        '<input type="text" class="cat-edit-input" data-cat-edit-num value="' + esc(d.number) + '" maxlength="50" autocomplete="off">' +
+        '<input type="text" class="cat-edit-input" data-cat-edit-name value="' + esc(d.name) + '" maxlength="200">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-cat-save="' + esc(c.number) + '">✓ حفظ</button> ' +
+        '<button type="button" class="btn btn-outline btn-sm" data-cat-cancel>✕ إلغاء</button></div>';
+    }
+    return '<div class="card cat-row"><span class="cat-text"><b>' + esc(c.number) + '</b> — ' + esc(c.name) + '</span>' +
+      '<button type="button" class="btn btn-outline btn-sm" data-cat-edit="' + esc(c.number) + '">✏️ تعديل</button> ' +
+      '<button type="button" class="btn btn-danger btn-sm" data-cat-del="' + esc(c.number) + '">حذف</button></div>';
   }).join("");
 }
 function openCatalog(){
@@ -1128,6 +1151,77 @@ $("catAddBtn").addEventListener("click", async function(){
     msg.textContent = "تعذّر الإضافة: " + String((err && err.message) || err || "").slice(0, 80);
   }
   $("catAddBtn").disabled = false;
+});
+function catSaveEdit(oldNum){
+  var list = $("catalogList");
+  var numInput = list ? list.querySelector('[data-cat-edit-num]') : null;
+  var nameInput = list ? list.querySelector('[data-cat-edit-name]') : null;
+  if(!numInput || !nameInput) return;
+  var num = numInput.value.trim();
+  var name = nameInput.value.trim();
+  var msg = $("catMsg");
+  if(!num || !name){ msg.textContent = "من فضلك املا رقم الصنف واسم الصنف."; return; }
+  if(catalog.some(function(c){ return normDigits(c.number)===normDigits(num) && normDigits(c.number)!==normDigits(oldNum); })){ msg.textContent = "رقم الصنف ده موجود قبل كده في الدليل."; return; }
+  if(!sb){ msg.textContent = "الدليل غير متاح الآن — تحقق من الاتصال بالإنترنت."; return; }
+  msg.textContent = "";
+  sb.from("item_catalog").update({item_number: num, item_name: name}).eq("item_number", oldNum).then(function(res){
+    if(res.error){ msg.textContent = "تعذّر الحفظ: " + String(res.error.message||"").slice(0,80); return; }
+    var c = catFind(oldNum);
+    if(c){ c.number = num; c.name = name; }
+    catalog.sort(function(a,b){ return a.number < b.number ? -1 : (a.number > b.number ? 1 : 0); });
+    editingCatNum = null; editingCatDraft = null;
+    renderCatalogList();
+    msg.textContent = "تم حفظ التعديل.";
+  });
+}
+$("catalogList").addEventListener("click", function(e){
+  var t = e.target && e.target.closest ? e.target.closest("[data-cat-edit],[data-cat-del],[data-cat-save],[data-cat-cancel]") : null;
+  if(!t) return;
+  if(t.hasAttribute("data-cat-edit")){
+    var c = catFind(t.getAttribute("data-cat-edit"));
+    if(!c) return;
+    editingCatNum = normDigits(c.number);
+    editingCatDraft = {number: c.number, name: c.name};
+    $("catMsg").textContent = "";
+    renderCatalogList();
+    var inp = $("catalogList").querySelector('[data-cat-edit-num]');
+    if(inp){ inp.focus(); inp.select(); }
+    return;
+  }
+  if(t.hasAttribute("data-cat-cancel")){ editingCatNum = null; editingCatDraft = null; renderCatalogList(); return; }
+  if(t.hasAttribute("data-cat-save")){ catSaveEdit(t.getAttribute("data-cat-save")); return; }
+  if(t.hasAttribute("data-cat-del")){
+    var num = t.getAttribute("data-cat-del");
+    var c2 = catFind(num);
+    askConfirm("حذف صنف رقم " + (c2 ? c2.number : num) + "؟", function(){
+      if(!sb){ $("catMsg").textContent = "الدليل غير متاح الآن — تحقق من الاتصال بالإنترنت."; return; }
+      sb.from("item_catalog").delete().eq("item_number", num).then(function(res){
+        if(res.error){ $("catMsg").textContent = "تعذّر الحذف: " + String(res.error.message||"").slice(0,80); return; }
+        catalog = catalog.filter(function(c){ return normDigits(c.number)!==normDigits(num); });
+        renderCatalogList();
+        $("catMsg").textContent = "تم حذف الصنف.";
+      });
+    });
+    return;
+  }
+});
+$("catalogList").addEventListener("input", function(e){
+  var t = e.target;
+  if(!t.classList || !t.classList.contains("cat-edit-input")) return;
+  if(!editingCatDraft) editingCatDraft = {number:"", name:""};
+  if(t.hasAttribute("data-cat-edit-num")) editingCatDraft.number = t.value;
+  if(t.hasAttribute("data-cat-edit-name")) editingCatDraft.name = t.value;
+});
+$("catalogList").addEventListener("keydown", function(e){
+  var t = e.target;
+  if(!t.classList || !t.classList.contains("cat-edit-input")) return;
+  if(e.key==="Enter"){
+    e.preventDefault();
+    var saveBtn = $("catalogList").querySelector('[data-cat-save]');
+    if(saveBtn) catSaveEdit(saveBtn.getAttribute("data-cat-save"));
+  }else if(e.key==="Escape"){
+    editingCatNum = null; editingCatDraft = null; renderCatalogList();
+  }
 });
 /* ---------- تصدير واستيراد نسخة احتياطية ---------- */
 $("exportBtn").addEventListener("click", function(){
