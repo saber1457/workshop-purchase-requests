@@ -642,7 +642,8 @@ function showAllMemos(){
   document.body.appendChild(div);
   searchSug = div;
 }
-$("searchToggle").addEventListener("click", function(){
+$("searchToggle").addEventListener("mousedown", function(e){ e.preventDefault(); });
+ $("searchToggle").addEventListener("click", function(){
   if(searchSug){ hideSearchSug(); } else { showAllMemos(); }
 });
 $("searchBox").addEventListener("focus", hideSearchSug);
