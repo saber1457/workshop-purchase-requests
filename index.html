@@ -19,6 +19,7 @@
   .btn-outline{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
   .btn-danger{background:#fdecea;color:var(--red);border:1.5px solid #f5c6c0}
   .btn-sm{padding:7px 11px;font-size:13.5px;border-radius:8px}
+  a.btn{text-decoration:none}
   .search-wrap{position:relative;flex:1;min-width:220px}
   .search-wrap input{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:11px 12px 11px 40px;font-size:15px;font-family:inherit}
   .combo-toggle{position:absolute;top:50%;transform:translateY(-50%);left:6px;border:0;background:#eef2f7;color:var(--ink);border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer}
@@ -121,6 +122,7 @@
     <button type="button" class="btn btn-outline" id="importBtn">⬆️ استيراد نسخة احتياطية</button>
     <button type="button" class="btn btn-outline" id="reportsBtn">📊 تقارير</button>
     <button type="button" class="btn btn-outline" id="catalogBtn">📋 دليل الأصناف</button>
+    <a class="btn btn-outline" href="https://saber1457.github.io/dashboard/">📊 لوحة المتابعة</a>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
     <div class="search-wrap">
       <input id="searchBox" type="text" placeholder="ابحث برقم الطلب أو اسم صنف…" autocomplete="off">
@@ -643,7 +645,7 @@ function showAllMemos(){
   searchSug = div;
 }
 $("searchToggle").addEventListener("mousedown", function(e){ e.preventDefault(); });
- $("searchToggle").addEventListener("click", function(){
+$("searchToggle").addEventListener("click", function(){
   if(searchSug){ hideSearchSug(); } else { showAllMemos(); }
 });
 $("searchBox").addEventListener("focus", hideSearchSug);
