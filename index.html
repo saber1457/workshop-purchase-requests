@@ -123,6 +123,7 @@
     <button type="button" class="btn btn-outline" id="reportsBtn">📊 تقارير</button>
     <button type="button" class="btn btn-outline" id="catalogBtn">📋 دليل الأصناف</button>
     <a class="btn btn-outline" href="https://saber1457.github.io/dashboard/">📊 لوحة المتابعة</a>
+    <button type="button" class="btn btn-outline" id="copyLinkBtn">🔗 نسخ رابط التطبيق</button>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
     <div class="search-wrap">
       <input id="searchBox" type="text" placeholder="ابحث برقم الطلب أو اسم صنف…" autocomplete="off">
@@ -1243,6 +1244,23 @@ $("exportBtn").addEventListener("click", function(){
   showStatus("تم تنزيل النسخة الاحتياطية ("+memos.length+" مذكرة).");
 });
 $("importBtn").addEventListener("click", function(){ $("importFile").click(); });
+$("copyLinkBtn").addEventListener("click", async function(){
+  var url = window.location.href;
+  var done = function(){
+    var b = $("copyLinkBtn"); var t = b.textContent;
+    b.textContent = "✓ تم نسخ الرابط";
+    setTimeout(function(){ b.textContent = t; }, 2000);
+  };
+  try{ await navigator.clipboard.writeText(url); done(); }
+  catch(e){
+    var ta = document.createElement("textarea");
+    ta.value = url; ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); done(); }
+    catch(e2){ showStatus("تعذّر النسخ التلقائي — انسخ الرابط من شريط العنوان."); }
+    document.body.removeChild(ta);
+  }
+});
 $("importFile").addEventListener("change", function(){
   var f = $("importFile").files[0];
   if(!f) return;
